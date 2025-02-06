@@ -113,7 +113,7 @@ ws.onmessage = (message) => {
 // Move player
 document.addEventListener("keydown", (event) => {
     if (!playerId) return;
-    const speed = cellSize; // Move by one cell size
+    const speed = 5; // Move by one cell size
     let position = players[playerId];
 
     if (event.key === "ArrowUp") position.y -= speed;
