@@ -9,7 +9,7 @@ let playerId = null;
 // Draw the maze using bfs or dfs
 let draw = [];
 
-const cells = 8;
+const cells = 12;
 const cellSize = canvas.height / cells;
 // for bitwise operation
 const N = 1, S = 2, E = 4, W = 8;
@@ -20,6 +20,13 @@ const OPPOSITE = {[E]:W, [W]:E, [S]:N, [N]:S};
 
 // grid consists of bitwise operation result of the nearby cells, so now if a cell is unvisited, it would be marked of as 0.
 let grid = Array.from({length: cells}, () => Array(cells).fill(0));
+
+const player = {
+    playerSpeed: 25,
+    acceleration: 0.95,
+    velocity: {x:0, y:0},
+    friction: 0.92,
+}
 
 // Initialize maze generation
 function initializeMaze() {
@@ -110,7 +117,6 @@ ws.onmessage = (message) => {
 };
 initializeMaze();
 
-// First, fix the collision detection function
 function checkWallCollision(x, y, radius) {
     const cellX = Math.floor(x / cellSize);
     const cellY = Math.floor(y / cellSize);
@@ -124,7 +130,6 @@ function checkWallCollision(x, y, radius) {
     const startX = cellX * cellSize;
     const startY = cellY * cellSize;
 
-    // Also check the next cell when near boundaries
     const nextCellX = Math.floor((x + radius) / cellSize);
     const nextCellY = Math.floor((y - radius) / cellSize);
     const prevCellY = Math.floor((y + radius) / cellSize);
@@ -172,16 +177,20 @@ document.addEventListener("keydown", (event) => {
 
     switch(event.key) {
         case "ArrowUp":
-            newPosition.y -= speed;
+            // newPosition.y -= speed;
+            player.velocity.y = Math.max(player.velocity.y - player.acceleration, -player.playerSpeed);
             break;
         case "ArrowDown":
-            newPosition.y += speed;
+            // newPosition.y += speed;
+            player.velocity.y = Math.min(player.velocity.y + player.acceleration, player.playerSpeed);
             break;
         case "ArrowLeft":
-            newPosition.x -= speed;
+            // newPosition.x -= speed;
+            player.velocity.x = Math.max(player.velocity.x - player.acceleration, -player.playerSpeed);
             break;
         case "ArrowRight":
-            newPosition.x += speed;
+            // newPosition.x += speed;
+            player.velocity.x = Math.min(player.velocity.x + player.acceleration, player.playerSpeed);
             break;
         default:
             return;
@@ -195,12 +204,61 @@ document.addEventListener("keydown", (event) => {
     }
 });
 
-// Optimize the game loop
+document.addEventListener("keyup", (event) => {
+    if (!playerId) return;
+    
+    // Optional: Immediately stop on keyup
+    // Comment these out for more slippery movement
+    switch(event.key) {
+        case "ArrowUp":
+        case "ArrowDown":
+            player.velocity.y = 0;
+            break;
+        case "ArrowLeft":
+        case "ArrowRight":
+            player.velocity.x = 0;
+            break;
+    }
+});
+
+// Modify your gameLoop to update position based on velocity
 function gameLoop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawMaze();
 
-    // Draw players
+    // Update player position based on velocity
+    if (playerId) {
+        let position = players[playerId];
+        let newPosition = {
+            x: position.x + player.velocity.x,
+            y: position.y + player.velocity.y
+        };
+
+        // Check for collisions with new position
+        if (!checkWallCollision(newPosition.x, newPosition.y, 10)) {
+            position.x = newPosition.x;
+            position.y = newPosition.y;
+            ws.send(JSON.stringify({ type: "move", position }));
+        } else {
+            // On collision, stop movement in that direction
+            if (checkWallCollision(position.x + player.velocity.x, position.y, 10)) {
+                player.velocity.x = 0;
+            }
+            if (checkWallCollision(position.x, position.y + player.velocity.y, 10)) {
+                player.velocity.y = 0;
+            }
+        }
+
+        // Apply friction
+        player.velocity.x *= player.friction;
+        player.velocity.y *= player.friction;
+
+        // Stop completely if moving very slowly
+        if (Math.abs(player.velocity.x) < 0.01) player.velocity.x = 0;
+        if (Math.abs(player.velocity.y) < 0.01) player.velocity.y = 0;
+    }
+
+    // Draw all players
     for (const id in players) {
         const { x, y } = players[id];
         ctx.beginPath();

@@ -7,7 +7,7 @@ let players = {};
 
 server.on("connection", (ws) => {
     const playerId = Date.now(); 
-    players[playerId] = {x:50, y:50};
+    players[playerId] = {x:15, y:15};
     console.log(`Player ${playerId} connected`);
 
     // Send current players to the new player
