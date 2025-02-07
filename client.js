@@ -28,50 +28,12 @@ const player = {
     friction: 0.92,
 }
 
-// Initialize maze generation
-function initializeMaze() {
-    // Reset grid
-    grid = Array.from({length: cells}, () => Array(cells).fill(0));
-    
-    // Start carving passages from (0,0)
-    carvePassageDfs();
-    
-    // Draw the initial maze
-    drawMaze();
-}
-
-function carvePassageDfs() {
-    let stack = [[0, 0]];
-
-    while (stack.length > 0) {
-        let [cx, cy] = stack[stack.length - 1];
-        let directions = [N, S, E, W].sort(() => Math.random() - 0.5);
-        let carved = false;
-
-        for (let direction of directions) {
-            let nx = cx + DX[direction];
-            let ny = cy + DY[direction];
-
-            if (ny >= 0 && ny < cells && nx >= 0 && nx < cells && grid[ny][nx] === 0) {
-                grid[cy][cx] |= direction;
-                grid[ny][nx] |= OPPOSITE[direction];
-
-                stack.push([nx, ny]);
-                carved = true;
-                break;
-            }
-        }
-
-        if (!carved) stack.pop();
-    }
-}
-
-function drawMaze() {
+function drawMaze(mazeGrid) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     for (let y = 0; y < cells; y++) {
         for (let x = 0; x < cells; x++) {
-            let cell = grid[y][x];
+            let cell = mazeGrid[y][x];
             let startX = x * cellSize;
             let startY = y * cellSize;
 
@@ -106,7 +68,13 @@ ws.onmessage = (message) => {
     if (data.type === "init") {
         players = data.players;
         playerId = data.playerId;
-        console.log(players);
+        console.log("Players: ", Object.keys(players).length);
+
+        if (data.grid) {
+            grid = data.grid; // Use shared grid from server
+            drawMaze(grid);
+        }
+
     } else if (data.type === "new-player") {
         players[data.playerId] = data.position;
     } else if (data.type === "update") {
@@ -115,7 +83,6 @@ ws.onmessage = (message) => {
         delete players[data.playerId];
     }
 };
-initializeMaze();
 
 function checkWallCollision(x, y, radius) {
     const cellX = Math.floor(x / cellSize);
@@ -224,7 +191,7 @@ document.addEventListener("keyup", (event) => {
 // Modify your gameLoop to update position based on velocity
 function gameLoop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawMaze();
+    drawMaze(grid);
 
     // Update player position based on velocity
     if (playerId) {
@@ -259,6 +226,7 @@ function gameLoop() {
     }
 
     // Draw all players
+
     for (const id in players) {
         const { x, y } = players[id];
         ctx.beginPath();
