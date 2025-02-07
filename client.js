@@ -26,6 +26,7 @@ const player = {
     acceleration: 0.95,
     velocity: {x:0, y:0},
     friction: 0.92,
+    color: "green",
 }
 
 function drawMaze(mazeGrid) {
@@ -74,9 +75,11 @@ ws.onmessage = (message) => {
             grid = data.grid; // Use shared grid from server
             drawMaze(grid);
         }
+        // players[playerId].color = data.color; 
 
     } else if (data.type === "new-player") {
         players[data.playerId] = data.position;
+        // players[data.playerId].color = data.color;
     } else if (data.type === "update") {
         players[data.playerId] = data.position;
     } else if (data.type === "remove-player") {
@@ -228,10 +231,10 @@ function gameLoop() {
     // Draw all players
 
     for (const id in players) {
-        const { x, y } = players[id];
+        const { x, y, color } = players[id];
         ctx.beginPath();
         ctx.arc(x, y, 10, 0, Math.PI * 2);
-        ctx.fillStyle = id === playerId ? "blue" : "red";
+        ctx.fillStyle = color || "green"; // Default color if undefined
         ctx.fill();
         ctx.closePath();
     }

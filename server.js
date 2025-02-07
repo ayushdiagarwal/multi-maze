@@ -5,9 +5,14 @@ const server = new WebSocket.Server({port:8080});
 // keep track of connected players
 let players = {};
 
+function getRandomColor() {
+    return `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')}`;
+}
+
 server.on("connection", (ws) => {
     const playerId = Date.now(); 
-    players[playerId] = {x:15, y:15};
+    color = getRandomColor();
+    players[playerId] = {x:15, y:15, color: color};
     console.log(`Player ${playerId} connected`);
 
     // If this is the first player, generate the grid
@@ -15,8 +20,10 @@ server.on("connection", (ws) => {
         grid = generateMaze();
     }
 
+
+
     // Send current players to the new player
-    ws.send(JSON.stringify({type:"init", players, playerId, grid}));
+    ws.send(JSON.stringify({type:"init", players, playerId, grid, color}));
 
     // Notify others about the new player
     broadcast({type: "new-player", playerId, position: players[playerId]});
