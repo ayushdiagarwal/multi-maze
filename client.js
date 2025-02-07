@@ -1,6 +1,5 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
-const stepBtn = document.getElementById("stepBtn");
 
 const ws = new WebSocket("ws://localhost:8080");
 
@@ -109,33 +108,99 @@ ws.onmessage = (message) => {
         delete players[data.playerId];
     }
 };
-
-// Move player
-document.addEventListener("keydown", (event) => {
-    if (!playerId) return;
-    const speed = 5; // Move by one cell size
-    let position = players[playerId];
-
-    if (event.key === "ArrowUp") position.y -= speed;
-    if (event.key === "ArrowDown") position.y += speed;
-    if (event.key === "ArrowLeft") position.x -= speed;
-    if (event.key === "ArrowRight") position.x += speed;
-
-    ws.send(JSON.stringify({ type: "move", position }));
-});
-
-function handleStepBtn() {
-    console.log(grid);
-}
-
-stepBtn.addEventListener("click", () => handleStepBtn());
-
 initializeMaze();
 
-// Draw players and maze
-function gameLoop() {
-    drawMaze(); // Redraw the maze
+// First, fix the collision detection function
+function checkWallCollision(x, y, radius) {
+    const cellX = Math.floor(x / cellSize);
+    const cellY = Math.floor(y / cellSize);
+    
+    // Check maze bounds
+    if (cellX < 0 || cellX >= cells || cellY < 0 || cellY >= cells) {
+        return true;
+    }
 
+    const currentCell = grid[cellY][cellX];
+    const startX = cellX * cellSize;
+    const startY = cellY * cellSize;
+
+    // Also check the next cell when near boundaries
+    const nextCellX = Math.floor((x + radius) / cellSize);
+    const nextCellY = Math.floor((y - radius) / cellSize);
+    const prevCellY = Math.floor((y + radius) / cellSize);
+    const prevCellX = Math.floor((x - radius) / cellSize);
+
+    // Check wall collisions in current cell and adjacent cells
+    // North collision
+    if (y - radius <= startY && !(currentCell & N)) {
+        if (nextCellY >= 0 && !(grid[nextCellY][cellX] & S)) {
+            return true;
+        }
+    }
+    
+    // South collision
+    if (y + radius >= startY + cellSize && !(currentCell & S)) {
+        if (prevCellY < cells && !(grid[prevCellY][cellX] & N)) {
+            return true;
+        }
+    }
+    
+    // West collision
+    if (x - radius <= startX && !(currentCell & W)) {
+        if (prevCellX >= 0 && !(grid[cellY][prevCellX] & E)) {
+            return true;
+        }
+    }
+    
+    // East collision
+    if (x + radius >= startX + cellSize && !(currentCell & E)) {
+        if (nextCellX < cells && !(grid[cellY][nextCellX] & W)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// Fix the movement handler
+document.addEventListener("keydown", (event) => {
+    if (!playerId) return;
+    const speed = 10;
+    let position = players[playerId];
+    let newPosition = { x: position.x, y: position.y };
+    const playerRadius = 10;
+
+    switch(event.key) {
+        case "ArrowUp":
+            newPosition.y -= speed;
+            break;
+        case "ArrowDown":
+            newPosition.y += speed;
+            break;
+        case "ArrowLeft":
+            newPosition.x -= speed;
+            break;
+        case "ArrowRight":
+            newPosition.x += speed;
+            break;
+        default:
+            return;
+    }
+
+    // Only update position if there's no collision
+    if (!checkWallCollision(newPosition.x, newPosition.y, playerRadius)) {
+        position.x = newPosition.x;
+        position.y = newPosition.y;
+        ws.send(JSON.stringify({ type: "move", position }));
+    }
+});
+
+// Optimize the game loop
+function gameLoop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawMaze();
+
+    // Draw players
     for (const id in players) {
         const { x, y } = players[id];
         ctx.beginPath();
@@ -147,6 +212,7 @@ function gameLoop() {
 
     requestAnimationFrame(gameLoop);
 }
+
 gameLoop();
 
 // Assign player ID on connection
